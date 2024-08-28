@@ -1,0 +1,79 @@
+#!/bin/bash
+
+#LITP_JEE_DS_COUNT=2
+#LITP_JEE_DS_0_name=name1
+#LITP_JEE_DS_0_driver_name=h2
+#LITP_JEE_DS_0_connection_url=testDatasource1
+#LITP_JEE_DS_0_jndi_name=asdf1
+#LITP_JEE_DS_0_username=username
+#LITP_JEE_DS_0_password=password
+#LITP_JEE_DS_0_use_ccm="false"
+#LITP_JEE_DS_0_max_pool_size=25
+#LITP_JEE_DS_0_blocking_timeout_wait_millis=5000
+#LITP_JEE_DS_0_new_connection_sql='set datestyle = ISO, European;'
+
+#LITP_JEE_DS_1_name=name123
+#LITP_JEE_DS_1_driver_name=h2
+#LITP_JEE_DS_1_connection_url=testDatasource123
+#LITP_JEE_DS_1_jndi_name=asdf123
+#LITP_JEE_DS_1_username=username123
+#LITP_JEE_DS_1_password=password23
+#LITP_JEE_DS_1_use_ccm="false"
+#LITP_JEE_DS_1_max_pool_size=25
+#LITP_JEE_DS_1_blocking_timeout_wait_millis=50002
+#LITP_JEE_DS_1_new_connection_sql='set datestyle = ISO, European;'
+
+#JBOSS_CLI="/home/jboss/jee1/bin/jboss-cli.sh controller=127.0.0.1:10199";
+
+RC=0
+
+if ! [[ "$LITP_JEE_DS_COUNT" =~ ^[0-9]+$ ]] ; then
+  echo "No JEE DATASOURCE resources found to create";
+  exit $RC
+fi
+
+function create_datasource {
+$JBOSS_CLI -c <<EOD
+/subsystem=datasources/data-source=java\:${!name}:add(jndi-name=java:${!jndi_name}, connection-url=${!connection_url}, driver-name=${!driver_name}, user-name=${!username}, password=${!password}, max-pool-size=${!max_pool_size}, use-ccm=${!use_ccm}, blocking-timeout-wait-millis=${!blocking_timeout_wait_millis}, new-connection-sql="${!new_connection_sql}")
+/subsystem=datasources/data-source=java\:${!name}:enable
+quit
+EOD
+}
+
+COUNT=0
+while [ $COUNT -lt $LITP_JEE_DS_COUNT ]
+do
+    name="LITP_JEE_DS_${COUNT}_name"
+    driver_name="LITP_JEE_DS_${COUNT}_driver_name"
+    connection_url="LITP_JEE_DS_${COUNT}_connection_url"
+    jndi_name="LITP_JEE_DS_${COUNT}_jndi_name"
+    username="LITP_JEE_DS_${COUNT}_username"
+    password="LITP_JEE_DS_${COUNT}_password"
+    use_ccm="LITP_JEE_DS_${COUNT}_use_ccm"
+    max_pool_size="LITP_JEE_DS_${COUNT}_max_pool_size"
+    blocking_timeout_wait_millis="LITP_JEE_DS_${COUNT}_blocking_timeout_wait_millis"
+    new_connection_sql="LITP_JEE_DS_${COUNT}_new_connection_sql"
+    CHECK=`$JBOSS_CLI -c "/subsystem=datasources:read-resource" | grep -o "\b${!name}\b"`
+    echo "Using JBOSS_CLI: ${JBOSS_CLI}"
+
+    if [[ $CHECK != ${!name} ]] ;
+    then
+        res=$(create_datasource)
+        if [ "$?" -eq 0 ];then
+            echo "Created JEE DATASOURCE with jndi name: ${!jndi_name}"
+        else
+            echo ${res} | grep -q 'Duplicate resource'
+            if [ $? == 0 ]
+            then
+                echo "Attempt to create JEE DATASOURCE with jndi_name: ${!jndi_name} failed with 'Duplicate Resource' error (Already exists). Ignoring error."
+            else
+                echo "Failed to create JEE DATASOURCE with jndi name: ${!jndi_name}" && RC=1
+                exit $RC
+            fi
+        fi
+    else
+        echo "Found existing JEE DATASOURCE with name: ${CHECK}"
+    fi
+    (( COUNT++ ))
+done
+exit $RC

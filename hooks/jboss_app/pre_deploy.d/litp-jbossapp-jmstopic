@@ -1,0 +1,56 @@
+#!/bin/bash
+
+#LITP_JMS_TOPIC_COUNT=2
+#LITP_JMS_TOPIC_0_name=testProp01
+#LITP_JMS_TOPIC_0_jndi=testPropValue01
+#LITP_JMS_TOPIC_1_name=testProp02
+#LITP_JMS_TOPIC_1_jndi=testPopValue02
+
+#JBOSS_CLI="/home/jboss/jee1/bin/jboss-cli.sh controller=127.0.0.1:10199";
+
+RC=0
+
+if ! [[ "$LITP_JMS_TOPIC_COUNT" =~ ^[0-9]+$ ]] ;
+then
+  echo "No JMS TOPIC resources found to create"
+  exit $RC
+fi
+
+function create_jmstopic {
+$JBOSS_CLI -c <<EOD
+jms-topic add --topic-address=${!jndi} --entries=${!name}
+quit
+EOD
+}
+
+COUNT=0
+while [ $COUNT -lt $LITP_JMS_TOPIC_COUNT ]
+do
+    name="LITP_JMS_TOPIC_${COUNT}_name";
+    jndi="LITP_JMS_TOPIC_${COUNT}_jndi"
+    CHECK=`$JBOSS_CLI -c "/subsystem=messaging/hornetq-server=default/jms-topic=${!jndi}:read-resource" | grep -io "success"`
+    echo "Using JBOSS_CLI: ${JBOSS_CLI}"
+    echo "CHECK: ${CHECK}"
+
+    if [[ $CHECK != "success" ]] ;
+    then
+        res=$(create_jmstopic)
+        if [ "$?" -eq 0 ]
+        then
+            echo "Created JMS TOPIC with jndi_name: ${!jndi}"
+        else
+            echo ${res} | grep -q 'Duplicate resource'
+            if [ $? == 0 ]
+            then
+                echo "Attempt to add jndi_name: ${!jndi} failed with 'Duplicate Resource' error (Already exists). Ignoring error."
+            else
+                echo "Failed to create JMS TOPIC with jndi_name: ${!jndi}" && RC=1
+                exit $RC
+            fi
+        fi
+    else
+        echo "Found existing JMS TOPIC with name: ${!jndi}"
+    fi
+    (( COUNT++ ))
+done
+exit $RC

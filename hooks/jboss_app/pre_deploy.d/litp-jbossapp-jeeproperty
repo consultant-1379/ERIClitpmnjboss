@@ -1,0 +1,48 @@
+#!/bin/bash
+
+#LITP_JEE_PROPERTY_COUNT=2
+#LITP_JEE_PROPERTY_0_property=testProp01
+#LITP_JEE_PROPERTY_0_value=testPropValue01
+#LITP_JEE_PROPERTY_1_property=testProp02
+#LITP_JEE_PROPERTY_1_value=testPopValue02
+
+#JBOSS_CLI="/home/jboss/jee1/bin/jboss-cli.sh controller=127.0.0.1:10199";
+
+RC=0
+
+if ! [[ "$LITP_JEE_PROPERTY_COUNT" =~ ^[0-9]+$ ]] ;
+then
+  echo "No JEE PROPERTY resources found to create";
+  exit $RC
+fi
+
+COUNT=0
+while [ $COUNT -lt $LITP_JEE_PROPERTY_COUNT ]
+do
+    PROPERTY="LITP_JEE_PROPERTY_${COUNT}_property";
+    VALUE="LITP_JEE_PROPERTY_${COUNT}_value";
+    CHECK=`$JBOSS_CLI -c "/system-property=${!PROPERTY}:read-resource" | grep -o "\b${!VALUE}\b"`
+    echo "Using JBOSS_CLI: ${JBOSS_CLI}"
+    echo "CHECK: ${CHECK}"
+
+    if [[ $CHECK != ${!VALUE} ]] ;
+    then
+        res=$($JBOSS_CLI -c "/system-property=${!PROPERTY}:add(value=${!VALUE})")
+        if [ "$?" -eq 0 ];then
+            echo "Created JEE PROPERTY with property name: ${!PROPERTY}"
+        else
+            echo ${res} | grep -q 'Duplicate resource'
+            if [ $? == 0 ]
+            then
+                echo "Attempt to create JEE PROPERTY with property name: ${!PROPERTY} failed with 'Duplicate Resource' error (Already exists). Ignoring error."
+            else
+                echo "Failed to create JEE PROPERTY with property name: ${!PROPERTY}" && RC=1
+                exit $RC
+            fi
+        fi
+    else 
+        echo "Found existing JEE PROPERTY with value: ${CHECK}"
+    fi
+    (( COUNT++ ))
+done
+exit $RC

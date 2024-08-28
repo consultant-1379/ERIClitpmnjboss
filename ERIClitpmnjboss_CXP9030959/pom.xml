@@ -1,0 +1,112 @@
+<?xml version="1.0"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <groupId>com.ericsson.nms.litp</groupId>
+  <artifactId>ERIClitpmnjboss_CXP9030959</artifactId>
+  <packaging>rpm</packaging>
+  <name>[${project.parent.artifactId}] RPM module</name>
+  <description>LITP Jboss Agent</description>
+  <parent>
+    <groupId>com.ericsson.nms.litp</groupId>
+    <artifactId>ERIClitpmnjboss</artifactId>
+    <version>1.9.2-SNAPSHOT</version>
+  </parent>
+  <properties>
+    <!-- publishes the rpm module to the ci portal -->
+    <com.ericsson.nms.litp.runats.skip>true</com.ericsson.nms.litp.runats.skip>
+    <publish_artifact>true</publish_artifact>
+    <bom_version>RELEASE</bom_version>
+  </properties>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+      </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>rpm-maven-plugin</artifactId>
+        <extensions>true</extensions>
+        <inherited>true</inherited>
+        <configuration>
+          <requires>
+            <require>python &gt;= 2.6</require>
+            <require>IPy</require>
+          </requires>
+          <mappings combine.children="append">
+            <mapping>
+              <directory>${app.home}/bin</directory>
+              <configuration>false</configuration>
+              <!-- We need this so that litp.py is executable -->
+              <filemode>775</filemode>
+              <sources>
+                <source>
+                  <location>../bin</location>
+                  <includes>
+                    <include>litp-jboss</include>
+                  </includes>
+                </source>
+              </sources>
+            </mapping>
+            <mapping>
+              <directory>${app.home}/etc/jboss</directory>
+              <!-- These are just hook scripts we should be able to override -->
+              <configuration>true</configuration>
+              <sources>
+                <source>
+                  <location>../hooks</location>
+                  <excludes>
+                    <exclude>**/.gitignore</exclude>
+                  </excludes>
+                </source>
+              </sources>
+            </mapping>
+            <mapping>
+              <directory>/etc</directory>
+              <!-- These are just hook scripts we should be able to override -->
+              <configuration>true</configuration>
+              <sources>
+                <source>
+                  <location>../etc</location>
+                  <includes>
+                    <include>litp_jboss_logging.conf</include>
+                  </includes>
+                </source>
+              </sources>
+            </mapping>
+          </mappings>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+  <profiles>
+    <profile>
+      <id>current-dep</id>
+      <activation>
+        <property>
+          <name>!UsingLatest</name>
+        </property>
+      </activation>
+      <properties />
+      <dependencies />
+    </profile>
+    <profile>
+      <id>latest-dep</id>
+      <properties>
+        <UsingLatest>true</UsingLatest>
+      </properties>
+      <dependencyManagement>
+        <dependencies>
+          <dependency>
+            <groupId>com.ericsson.litp</groupId>
+            <artifactId>ci-bom</artifactId>
+            <version>${bom_version}</version>
+            <type>pom</type>
+            <scope>import</scope>
+          </dependency>
+        </dependencies>
+      </dependencyManagement>
+      <dependencies />
+    </profile>
+  </profiles>
+</project>
